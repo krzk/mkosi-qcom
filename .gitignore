@@ -1,5 +1,8 @@
+mkosi.cache/
 mkosi.local.conf
 mkosi.packages
 image
 image.*
+initrd
+initrd.*
 debian-tools
