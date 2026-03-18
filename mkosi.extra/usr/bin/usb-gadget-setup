@@ -1,0 +1,59 @@
+#!/bin/sh
+#
+# Copyright (c) 2022-2023,2025 Krzysztof Kozlowski <krzk@kernel.org>
+# SPDX-License-Identifier: GPL-2.0
+#
+
+set -e -x
+
+manufacturer="Linux"
+model="Embedded device"
+serial="123456789ABCDEF"
+mode="ncm"
+
+[ -d /sys/kernel/config/usb_gadget ] || modprobe libcomposite
+
+cd /sys/kernel/config/usb_gadget || exit
+
+# shellcheck disable=SC2015
+[ -d g2 ] && /usr/bin/usb-gadget-cleanup || true
+
+mkdir g2
+cd g2 || exit
+
+echo 0x1d6b > idVendor
+echo 0x0104 > idProduct
+mkdir strings/0x409
+echo "$serial" > strings/0x409/serialnumber
+echo "$manufacturer" > strings/0x409/manufacturer
+echo "$model" > strings/0x409/product
+
+mkdir configs/c.1
+mkdir configs/c.1/strings/0x409
+
+case "$mode" in
+	ecm)
+		echo "USB CDC Ethernet config" > configs/c.1/strings/0x409/configuration
+		mkdir functions/ecm.usb0
+		ln -s functions/ecm.usb0 configs/c.1
+		;;
+	ncm)
+		echo "USB CDC Ethernet config" > configs/c.1/strings/0x409/configuration
+		mkdir functions/ncm.usb0
+		ln -s functions/ncm.usb0 configs/c.1
+		;;
+	rndis)
+		echo "RNDIS Ethernet config" > configs/c.1/strings/0x409/configuration
+		mkdir functions/rndis.rn0
+		ln -s functions/rndis.rn0 configs/c.1
+		;;
+	*)
+		echo "Invalid mode configured"
+		exit 1
+esac
+
+# shellcheck disable=SC2011
+# Busybox does not have -printf and using print0 gives path, not name,
+# so no clue how to write it nicely... devices should not have non-alphanumeric
+# names anyway.
+cd /sys/class/udc/ && ls -1 | xargs echo -n > /sys/kernel/config/usb_gadget/g2/UDC
